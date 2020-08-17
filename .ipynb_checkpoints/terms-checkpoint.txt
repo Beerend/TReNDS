@@ -1,0 +1,9 @@
+Axes:
+Axial axis (top-bottom)
+Lateral axis (left-right)
+Medial axis (front-back)
+
+Planes:
+Axial plane (divides top and bottom, contains lateral and medial axis)
+Coronal plane (divides front and back, contains lateral and axial axis)
+Sagittal plane (divides left and right, contains axial and medial axis)
