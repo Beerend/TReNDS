@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 class TReNDSDataset(Dataset):
     
     def __init__(self, root, mode='train', n_splits=5, fold=0, rand_affine=False):
-        self.root  = root
+        self.root  = os.path.join(root, 'TReNDS')
         self.mode  = mode
         self.splts = n_splits
         self.fold  = fold
