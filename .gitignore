@@ -1,6 +1,9 @@
 # TReNDS dataset directory
 TReNDS/
 
+# Model checkpoints
+*.pth
+
 # Jupyter checkpoints
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
