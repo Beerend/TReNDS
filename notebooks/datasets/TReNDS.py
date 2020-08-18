@@ -9,9 +9,9 @@ from torch.utils.data import Dataset
 
 class TReNDSDataset(Dataset):
     
-    def __init__(self, root, mode='train', n_splits=5, fold=0, rand_affine=False):
+    def __init__(self, root, n_splits=5, fold=0, rand_affine=False):
         self.root  = os.path.join(root, 'TReNDS')
-        self.mode  = mode
+        self.mode  = 'train'
         self.splts = n_splits
         self.fold  = fold
         self.rand  = rand_affine
@@ -46,7 +46,6 @@ class TReNDSDataset(Dataset):
         # Load the 4-dimensional fMRI image
         img = np.load(filename).astype(np.float32)
         img = img.transpose((3,2,1,0)) # 53 (temporal), 52 (axial), 63 (medial), 53 (lateral)
-#         img = np.array([img[26,:,:,:]])
         
         # Randomly affine the image (for generalisation purposes during training)
 #         if self.rand:
@@ -63,3 +62,7 @@ class TReNDSDataset(Dataset):
             return len(self.train_index)
         elif self.mode=='test':
             return len(self.test_index)
+
+    def set_mode(self, mode):
+        assert(mode in ['train','test'])
+        self.mode = mode
