@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 class TReNDSDataset(Dataset):
     
-    def __init__(self, mode, root, n_splits=5, fold=0):
+    def __init__(self, root, mode, n_splits=5, fold=0):
         self.root  = os.path.join(root, 'TReNDS')
         self.mode  = mode
         self.splts = n_splits
