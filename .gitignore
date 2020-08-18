@@ -2,7 +2,7 @@
 TReNDS/
 
 # Model checkpoints
-*.pth
+epoch_*.pth.tar
 
 # Jupyter checkpoints
 .ipynb_checkpoints
