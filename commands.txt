@@ -1,2 +1,10 @@
-# Start jupyter lab:
+# Start jupyter lab
 jupyter lab
+
+# Remain connection in Google Colab (max. 12h, interaction needed every 90min)
+
+function ClickConnect(){
+    console.log("Clicked on connect button"); 
+    document.querySelector("colab-connect-button").click()
+}
+setInterval(ClickConnect,60000)
