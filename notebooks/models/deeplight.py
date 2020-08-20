@@ -55,28 +55,26 @@ class DeepLight(nn.Module):
             T = 1
             batch_data = torch.unsqueeze(batch_data[:,self.temp_frame,:,:,:], 1) #B,1,A,M,L
             
-        out = torch.zeros(B, T, device=batch_data.device)
-        for t in range(T):
-            embs = torch.zeros(B, A, self.cnn_out_dim, device=batch_data.device)
-            for s in range(A):
-                x = torch.unsqueeze(batch_data[:,t,s,:,:], 1) #B,1,M,L
-                x = self.relu(self.conv1(x))
-                x = self.relu(self.conv2(x))
-                x = self.relu(self.conv3(x))
-                x = self.relu(self.conv4(x))
-                x = self.relu(self.conv5(x))
-                x = self.relu(self.conv6(x))
-                x = self.relu(self.conv7(x))
-                x = self.relu(self.conv8(x))
-                x = torch.flatten(x, start_dim=1) #B,512
-                embs[:,s,:] = torch.unsqueeze(x, 1) #B,1,512
+        x = batch_data.reshape((B*T*A, 1, M, L)) #B*T*A,1,M,L
+        
+        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv2(x))
+        x = self.relu(self.conv3(x))
+        x = self.relu(self.conv4(x))
+        x = self.relu(self.conv5(x))
+        x = self.relu(self.conv6(x))
+        x = self.relu(self.conv7(x))
+        x = self.relu(self.conv8(x))
+        x = torch.flatten(x, start_dim=1) #B*T*A,512
+        x = x.reshape((B*T, A, self.cnn_out_dim)) #B*T,A,512
                 
-            x, _ = self.lstm(embs)
-            x = torch.flatten(x, start_dim=1) #B,A*40
-            x = self.fc(x) #B,1
-            out[:,t] = x
+        x, _ = self.lstm(x)
+        x = torch.flatten(x, start_dim=1) #B*T,A*40
+        
+        out = self.fc(x) #B*T,1
                 
         if not self.temp_frame:
+            out = out.reshape((B,T))
             out = torch.mean(out, dim=1, keepdim=True) #B,1
         
         return out

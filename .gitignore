@@ -6,7 +6,8 @@ epoch_*.pth.tar
 
 # Jupyter checkpoints
 .ipynb_checkpoints
-*/.ipynb_checkpoints/*
+*-checkpoint.ipynb
 
 # Python cache
 */__pycache__/*
+__pycache__
