@@ -8,11 +8,12 @@ from torch.utils.data import Dataset
 
 class TReNDSDataset(Dataset):
     
-    def __init__(self, root, mode, n_splits=5, fold=0):
+    def __init__(self, root, mode, n_splits=5, fold=0, norm=True):
         self.root  = os.path.join(root, 'TReNDS')
         self.mode  = mode
         self.splts = n_splits
         self.fold  = fold
+        self.norm  = norm
         
         # Read samples (Id and age)
         data = pd.read_csv('{}/train_scores.csv'.format(self.root), usecols=[0, 1]).dropna()
@@ -42,7 +43,13 @@ class TReNDSDataset(Dataset):
         # Load the 4-dimensional fMRI image
         img = np.load(filename).astype(np.float32)
         img = img.transpose((3,2,1,0)) # 53 (temporal), 52 (axial), 63 (medial), 53 (lateral)
-                
+        
+        if self.norm:
+            img -= np.mean(img)
+            safe_max = np.max(np.abs(img))
+            if safe_max!=0:
+                img /= safe_max
+
         return torch.from_numpy(img), torch.tensor([lbl])
     
     def __len__(self):
