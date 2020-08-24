@@ -125,6 +125,19 @@ class AvgPool4d(nn.Module):
         
         return x
     
+class BatchNorm4d(nn.Module):
+    
+    def __init__(self, num_features):
+        super(BatchNorm4d, self).__init__()
+        self.bn = nn.BatchNorm3d(num_features)
+        
+    def forward(self, x):
+        B,C = x.shape[:2]
+        x = x.view((B*C) + x.shape[2:])
+        x = self.bn(x)
+        x = x.view((B,C) + x.shape[1:])
+        return x
+    
 def downsample_basic_block(x, channels_in, stride=1, no_cuda=False):
     x = MaxPool4d(x, kernel_size=1, stride=stride)
     zero_pads = torch.Tensor(x.size(0), channels_in - out.size(1), out.size(2),
@@ -144,11 +157,11 @@ class BasicBlock(nn.Module):
         
         self.conv1 = Conv4d(channels_in, channels_out, kernel_size=3, stride=stride,
                             dilation=dilation, padding=dilation)
-        self.bn1   = nn.SyncBatchNorm(channels_out)
+        self.bn1   = BatchNorm4d(channels_out)
         self.relu  = nn.ReLU(inplace=True)
         self.conv2 = Conv4d(channels_out, channels_out, kernel_size=3, stride=1, 
                             dilation=dilation, padding=dilation)
-        self.bn2   = nn.SyncBatchNorm(channels_out)
+        self.bn2   = BatchNorm4d(channels_out)
         self.downs = downsample
         
     def forward(self, x):
@@ -175,7 +188,7 @@ class ResNet4D(nn.Module):
         super(ResNet4D, self).__init__()
         
         self.conv1   = Conv4d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1     = nn.SyncBatchNorm(64)
+        self.bn1     = BatchNorm4d(64)
         self.relu    = nn.ReLU(inplace=True)
         self.maxpool = MaxPool4d(kernel_size=3, stride=2, padding=1)
         
@@ -204,7 +217,7 @@ class ResNet4D(nn.Module):
                 downsample = nn.Sequential(
                                 Conv4d(self.channels, channels_out, kernel_size=1,
                                        stride=stride, bias=False),
-                                nn.SyncBatchNorm(channels_out))
+                                BatchNorm4d(channels_out))
         
         layers = []
         layers.append(block(self.channels, channels_out, stride=stride,
