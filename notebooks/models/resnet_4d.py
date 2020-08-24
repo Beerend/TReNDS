@@ -144,27 +144,24 @@ class BasicBlock(nn.Module):
         
         self.conv1 = Conv4d(channels_in, channels_out, kernel_size=3, stride=stride,
                             dilation=dilation, padding=dilation)
-        #self.bn1   = nn.SyncBatchNorm(channels_out)
+        self.bn1   = nn.SyncBatchNorm(channels_out)
         self.relu  = nn.ReLU(inplace=True)
         self.conv2 = Conv4d(channels_out, channels_out, kernel_size=3, stride=1, 
                             dilation=dilation, padding=dilation)
-        #self.bn2   = nn.SyncBatchNorm(channels_out)
+        self.bn2   = nn.SyncBatchNorm(channels_out)
         self.downs = downsample
         
     def forward(self, x):
         res = x
         x = self.conv1(x)
-#         x = self.bn1(x)
+        x = self.bn1(x)
         x = self.relu(x)
         x = self.conv2(x)
-#         x = self.bn2(x)
+        x = self.bn2(x)
         
         if self.downs:
-            print('Downsample residual')
             res = self.downs(res)
-            
-        print('- in basicblock (x, res):', x.shape, res.shape)
-        
+                
         x += res
         x = self.relu(x)
         return x
@@ -178,7 +175,7 @@ class ResNet4D(nn.Module):
         super(ResNet4D, self).__init__()
         
         self.conv1   = Conv4d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        #self.bn1     = nn.SyncBatchNorm(64)
+        self.bn1     = nn.SyncBatchNorm(64)
         self.relu    = nn.ReLU(inplace=True)
         self.maxpool = MaxPool4d(kernel_size=3, stride=2, padding=1)
         
@@ -206,8 +203,8 @@ class ResNet4D(nn.Module):
             else:
                 downsample = nn.Sequential(
                                 Conv4d(self.channels, channels_out, kernel_size=1,
-                                       stride=stride, bias=False)) #,
-                                #nn.SyncBatchNorm(channels_out))
+                                       stride=stride, bias=False),
+                                nn.SyncBatchNorm(channels_out))
         
         layers = []
         layers.append(block(self.channels, channels_out, stride=stride,
@@ -220,32 +217,19 @@ class ResNet4D(nn.Module):
         
     def forward(self, x):
         x = torch.unsqueeze(x, 1) #B,C,T,A,M,L
-        print('Input:', x.shape)
         x = self.conv1(x)
-        print('After conv1:', x.shape)
-#         x = self.bn1(x)
-        print('Warning: no batch norm.')
+        x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        print('After maxpool:', x.shape)
         x = self.layer1(x)
-        print('After layer1:', x.shape)
         x = self.layer2(x)
-        print('After layer2:', x.shape)
         x = self.layer3(x)
-        print('After layer3:', x.shape)
-        print('Warning: stride instead of dilation')
-        x = self.layer4(x)
-        print('After layer4:', x.shape)
-        print('Warning: stride instead of dilation')
-        
-        x      = self.avgpool(x)
-        print('After avgpool:', x.shape)
+        x = self.layer4(x)        
+        x = self.avgpool(x)
         x = x.view((-1, 512))
-        print('After reshaping:', x.shape)
-        out    = self.fc(x)
-        print('Out:', out.shape)
-        return out
+        x = self.fc(x)
+        
+        return x
     
 def resnet10_4d(**kwargs):
     """ Constructs a ResNet-10 model with 4-dim convolutional kernels """
