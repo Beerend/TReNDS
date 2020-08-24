@@ -114,7 +114,7 @@ class BasicBlock(nn.Module):
                             dilation=dilation, padding=dilation)
         #self.bn1   = nn.SyncBatchNorm(channels_out)
         self.relu  = nn.ReLU(inplace=True)
-        self.conv2 = Conv4d(channels_out, channels_out, kernel_size=3, stride=stride, 
+        self.conv2 = Conv4d(channels_out, channels_out, kernel_size=3, stride=1, 
                             dilation=dilation, padding=dilation)
         #self.bn2   = nn.SyncBatchNorm(channels_out)
         self.downs = downsample
@@ -165,24 +165,25 @@ class ResNet4D(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
                 
-    def _make_layer(self, block, channels_in, blocks, stride=1, dilation=1):
+    def _make_layer(self, block, channels_out, blocks, stride=1, dilation=1):
         downsample = None
-        if stride!=1 or channels_in*block.expansion!=self.channels:
+        if stride!=1 or channels_out*block.expansion!=self.channels:
             if self.sc_type=='A':
-                downsample = partial(downsample_basic_block, channels_in*block.expansion,
+                downsample = partial(downsample_basic_block,
+                                     channels_out*block.expansion,
                                      stride=stride, no_cuda=self.no_cuda)
             else:
                 downsample = nn.Sequential(
-                                Conv4d(self.channels, channels_in*block.expansion,
+                                Conv4d(self.channels, channels_out*block.expansion,
                                        kernel_size=1, stride=stride, bias=False))#,
-                                #nn.SyncBatchNorm(channels_in*block.expansion))
+                                #nn.SyncBatchNorm(channels_out*block.expansion))
         
         layers = []
-        layers.append(block(self.channels, channels_in, stride=stride, dilation=dilation,
-                            downsample=downsample))
-        self.channels = channels_in*block.expansion
+        layers.append(block(self.channels, channels_out, stride=stride,
+                            dilation=dilation, downsample=downsample))
+        self.channels = channels_out*block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.channels, channels_in, dilation=dilation))
+            layers.append(block(self.channels, channels_out, dilation=dilation))
             
         return nn.Sequential(*layers)
         

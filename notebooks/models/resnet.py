@@ -54,7 +54,11 @@ class BasicBlock(nn.Module):
         out = self.bn2(out)
 
         if self.downsample is not None:
+            print('--- Downsample residual')
             residual = self.downsample(x)
+            
+        print('--- shape x:', out.shape)
+        print('--- shape r:', residual.shape)
 
         out += residual
         out = self.relu(out)
@@ -163,14 +167,21 @@ class ResNet3D(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        print('Input:', x.shape)
         x = self.conv1( x)
+        print('After conv1:', x.shape)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
+        print('After maxpool:', x.shape)
         x = self.layer1(x)
+        print('After layer1:', x.shape)
         x = self.layer2(x)
+        print('After layer2:', x.shape)
         x = self.layer3(x)
+        print('After layer3:', x.shape)
         x = self.layer4(x)
+        print('After layer4:', x.shape)
 
         x = F.adaptive_avg_pool3d(x, (1, 1, 1))
         emb_3d = x.view((-1, self.fea_dim))
@@ -225,3 +236,27 @@ def resnet200(**kwargs):
     """
     model = ResNet3D(Bottleneck, [3, 24, 36, 3], **kwargs)
     return model
+
+"""
+Sizes of tensors during ResNet-10 processing:
+Input   [1,  53, 52, 63, 53]
+Conv1   [1,  64, 26, 32, 27]
+Maxpool [1,  64, 13, 16, 14]
+
+-- BB r [1,  64, 13, 16, 14]
+-- BB x [1,  64, 13, 16, 14]
+Layer 1 [1,  64, 13, 16, 14]
+
+-- BB r [1, 128,  7,  8,  7] (downsampled)
+-- BB x [1, 128,  7,  8,  7]
+Layer 2 [1, 128,  7,  8,  7]
+
+-- BB r [1, 128,  7,  8,  7] (downsampled)
+-- BB x [1, 128,  7,  8,  7]
+Layer 3 [1, 256,  7,  8,  7]
+
+-- BB r [1, 256,  7,  8,  7] (downsampled)
+-- BB x [1, 256,  7,  8,  7]
+Layer 4 [1, 512,  7,  8,  7]
+
+"""
