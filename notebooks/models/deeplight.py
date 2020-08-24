@@ -43,9 +43,9 @@ class DeepLight(nn.Module):
         self.fc = nn.Linear(2*num_slices*40, 1, bias=True)
         
         # Dropout
-        self.dropout_3 = nn.Dropout(p=0.3)
-        self.dropout_4 = nn.Dropout(p=0.4)
-        self.dropout_5 = nn.Dropout(p=0.5)
+        # self.dropout_3 = nn.Dropout(p=0.3)
+        # self.dropout_4 = nn.Dropout(p=0.4)
+        # self.dropout_5 = nn.Dropout(p=0.5)
         
         # Initiate all weights with normal distribution (Glorot and Bengio, 2010)
         for m in self.modules():
@@ -60,27 +60,36 @@ class DeepLight(nn.Module):
             T = 1
             batch_data = torch.unsqueeze(batch_data[:,self.temp_frame,:,:,:], 1) #B,1,A,M,L
             
-        x = batch_data.reshape((B*T*A, 1, M, L)) #B*T*A,1,M,L
+        x = batch_data.contiguous() #Make contiguous to perform in-memory .view() on tensor
+        x = x.view((B*T*A, 1, M, L)) #B*T*A,1,M,L
         
-        x = self.dropout_3(self.relu(self.conv1(x)))
-        x = self.dropout_3(self.relu(self.conv2(x)))
-        x = self.dropout_4(self.relu(self.conv3(x)))
-        x = self.dropout_4(self.relu(self.conv4(x)))
-        x = self.dropout_5(self.relu(self.conv5(x)))
-        x = self.dropout_5(self.relu(self.conv6(x)))
-        x = self.dropout_5(self.relu(self.conv7(x)))
-        x = self.dropout_5(self.relu(self.conv8(x)))
+        x = self.relu(self.conv1(x))
+        # x = self.dropout_3(x)
+        x = self.relu(self.conv2(x))
+        # x = self.dropout_3(x)
+        x = self.relu(self.conv3(x))
+        # x = self.dropout_4(x)
+        x = self.relu(self.conv4(x))
+        # x = self.dropout_4(x)
+        x = self.relu(self.conv5(x))
+        # x = self.dropout_5(x)
+        x = self.relu(self.conv6(x))
+        # x = self.dropout_5(x)
+        x = self.relu(self.conv7(x))
+        # x = self.dropout_5(x)
+        x = self.relu(self.conv8(x))
+        # x = self.dropout_5(x)
         x = torch.flatten(x, start_dim=1) #B*T*A,512
-        x = x.reshape((B*T, A, self.cnn_out_dim)) #B*T,A,512
+        x = x.view((B*T, A, self.cnn_out_dim)) #B*T,A,512
                 
         x, _ = self.lstm(x)
-        x = self.dropout_5(x)
+        # x = self.dropout_5(x)
         x = torch.flatten(x, start_dim=1) #B*T,A*40
         
         out = self.fc(x) #B*T,1
                 
         if not self.temp_frame:
-            out = out.reshape((B,T))
+            out = out.view((B,T))
             out = torch.mean(out, dim=1, keepdim=True) #B,1
         
         return out
