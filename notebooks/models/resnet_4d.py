@@ -85,7 +85,7 @@ class MaxPool4d(nn.Module):
         
         x = torch.stack(frame_results, dim=2)
         x = x.permute(0,1,3,4,5,2)
-#         x = x.contiguous()
+        x = x.contiguous()
         x = x.view((B,C*O_size[1]*O_size[2]*O_size[3],T))
         x = self.pool1d(x)
         x = x.view((B,C,O_size[1],O_size[2],O_size[3],O_size[0]))
@@ -117,7 +117,7 @@ class AvgPool4d(nn.Module):
         
         x = torch.stack(frame_results, dim=2)
         x = x.permute(0,1,3,4,5,2)
-#         x = x.contiguous()
+        x = x.contiguous()
         x = x.view((B,C*O_size[1]*O_size[2]*O_size[3],T))
         x = self.pool1d(x)
         x = x.view((B,C,O_size[1],O_size[2],O_size[3],O_size[0]))
