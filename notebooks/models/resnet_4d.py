@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from typing import Tuple, Callable
+from typing import Tuple
 from math import floor
 from functools import partial
 
@@ -85,9 +85,42 @@ class MaxPool4d(nn.Module):
         
         x = torch.stack(frame_results, dim=2)
         x = x.permute(0,1,3,4,5,2)
-        x = x.reshape((B,C*O_size[1]*O_size[2]*O_size[3],T))
+#         x = x.contiguous()
+        x = x.view((B,C*O_size[1]*O_size[2]*O_size[3],T))
         x = self.pool1d(x)
-        x = x.reshape((B,C,O_size[1],O_size[2],O_size[3],O_size[0]))
+        x = x.view((B,C,O_size[1],O_size[2],O_size[3],O_size[0]))
+        x = x.permute(0,1,5,2,3,4)
+        
+        return x
+    
+class AvgPool4d(nn.Module):
+    
+    def __init__(self, kernel_size:Tuple, stride:int=1, padding:int=0):
+        self.K = kernel_size
+        self.S = stride
+        self.P = padding
+        super(AvgPool4d, self).__init__()
+        
+        self.pool3d = nn.AvgPool3d(kernel_size=self.K[1:], stride=self.S, padding=self.P)
+        self.pool1d = nn.AvgPool1d(kernel_size=self.K[0], stride=self.S, padding=self.P)
+        
+    def forward(self, x):
+        B,C,T  = x.shape[:3]
+        X_size = x.shape[2:]
+        O_size = [floor((X_size[i] + 2*self.P - self.K[i]) / self.S + 1) for
+                 i in range(4)]
+        
+        frame_results = T * [None]
+        
+        for i in range(T): 
+            frame_results[i] = self.pool3d(x[:,:,i,:,:,:])
+        
+        x = torch.stack(frame_results, dim=2)
+        x = x.permute(0,1,3,4,5,2)
+#         x = x.contiguous()
+        x = x.view((B,C*O_size[1]*O_size[2]*O_size[3],T))
+        x = self.pool1d(x)
+        x = x.view((B,C,O_size[1],O_size[2],O_size[3],O_size[0]))
         x = x.permute(0,1,5,2,3,4)
         
         return x
@@ -103,7 +136,6 @@ def downsample_basic_block(x, channels_in, stride=1, no_cuda=False):
     return out
 
 class BasicBlock(nn.Module):
-    expansion = 1
     
     def __init__(self, channels_in, channels_out, stride=1, dilation=1, downsample=None):
         self.S = stride
@@ -150,13 +182,13 @@ class ResNet4D(nn.Module):
         self.relu    = nn.ReLU(inplace=True)
         self.maxpool = MaxPool4d(kernel_size=3, stride=2, padding=1)
         
-        self.layer1  = self._make_layer(block, 64, layers[0], stride=1, dilation=1)
-        self.layer2  = self._make_layer(block, 64*2, layers[1], stride=2, dilation=1)
-        self.layer3  = self._make_layer(block, 128*2, layers[2], stride=2, dilation=1) # S=1, D=2
-        self.layer4  = self._make_layer(block, 256*2, layers[3], stride=4, dilation=1) # S=1, D=4
+        self.layer1  = self._make_layer(block, 64, layers[0])
+        self.layer2  = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3  = self._make_layer(block, 256, layers[2]) # dilation=2
+        self.layer4  = self._make_layer(block, 512, layers[3]) # dilation=4
         
-        self.fea_dim = 256*2 * block.expansion
-        self.fc      = nn.Sequential(nn.Linear(self.fea_dim, num_class, bias=True))
+        self.avgpool = AvgPool4d(kernel_size=(7,7,8,7))
+        self.fc      = nn.Sequential(nn.Linear(512, num_class, bias=True))
         
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -167,21 +199,20 @@ class ResNet4D(nn.Module):
                 
     def _make_layer(self, block, channels_out, blocks, stride=1, dilation=1):
         downsample = None
-        if stride!=1 or channels_out*block.expansion!=self.channels:
+        if stride!=1 or channels_out!=self.channels:
             if self.sc_type=='A':
-                downsample = partial(downsample_basic_block,
-                                     channels_out*block.expansion,
+                downsample = partial(downsample_basic_block, channels_out,
                                      stride=stride, no_cuda=self.no_cuda)
             else:
                 downsample = nn.Sequential(
-                                Conv4d(self.channels, channels_out*block.expansion,
-                                       kernel_size=1, stride=stride, bias=False))#,
-                                #nn.SyncBatchNorm(channels_out*block.expansion))
+                                Conv4d(self.channels, channels_out, kernel_size=1,
+                                       stride=stride, bias=False)) #,
+                                #nn.SyncBatchNorm(channels_out))
         
         layers = []
         layers.append(block(self.channels, channels_out, stride=stride,
                             dilation=dilation, downsample=downsample))
-        self.channels = channels_out*block.expansion
+        self.channels = channels_out
         for i in range(1, blocks):
             layers.append(block(self.channels, channels_out, dilation=dilation))
             
@@ -208,9 +239,12 @@ class ResNet4D(nn.Module):
         print('After layer4:', x.shape)
         print('Warning: stride instead of dilation')
         
-        x      = F.adaptive_avg_pool3d(x, (1,1,1))
-        emb_4d = x.view((-1, self.fea_dim))
-        out    = self.fc(emb_4d)
+        x      = self.avgpool(x)
+        print('After avgpool:', x.shape)
+        x = x.view((-1, 512))
+        print('After reshaping:', x.shape)
+        out    = self.fc(x)
+        print('Out:', out.shape)
         return out
     
 def resnet10_4d(**kwargs):
