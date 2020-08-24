@@ -133,9 +133,9 @@ class BatchNorm4d(nn.Module):
         
     def forward(self, x):
         B,C = x.shape[:2]
-        x = x.view((B*C) + x.shape[2:])
+        x = x.view(tuple(B*C) + x.shape[2:])
         x = self.bn(x)
-        x = x.view((B,C) + x.shape[1:])
+        x = x.view(tuple(B,C) + x.shape[1:])
         return x
     
 def downsample_basic_block(x, channels_in, stride=1, no_cuda=False):
