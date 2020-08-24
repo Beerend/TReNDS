@@ -118,7 +118,7 @@ The Human Connectome Project preprocessing pipeline for fMRI data:
 
 Additional preprocessing:
 7. volume-based smoothing of the fMRI sequences with a 3 mm Gaussian kernel
-8. linear detrending and standardization of the signle voxel signal time-series (resulting in a zero-centered voxel time-series with unit variance)
+8. linear detrending and standardization of the single voxel signal time-series (resulting in a zero-centered voxel time-series with unit variance)
 9. temporal filtering of the single voxel time-series with a butterworth highpass filter and a cutoff of 128s
 10. applied outer brain mask to each fMRI volume
 """

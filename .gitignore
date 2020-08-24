@@ -1,5 +1,11 @@
+# Results folder (for now...)
+results/
+
 # TReNDS dataset directory
 TReNDS/
+
+# Notebook for synchronisation with GitHub for Google Colab
+notebooks/sync_with_GitHub.ipynb
 
 # Model checkpoints
 epoch_*.pth.tar
