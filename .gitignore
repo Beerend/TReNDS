@@ -4,6 +4,9 @@ results/
 # TReNDS dataset directory
 TReNDS/
 
+# Notebook for test purposes
+notebooks/test.ipynb
+
 # Notebook for synchronisation with GitHub for Google Colab
 notebooks/sync_with_GitHub.ipynb
 
