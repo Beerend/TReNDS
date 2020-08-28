@@ -57,7 +57,7 @@ class TReNDSDataset(Dataset):
         
         # Pre-processing by applying a mask, Gaussian smoothing (3mm) and signal cleaning
         if self.prepr:
-            img = nl.image.new_img_like(self.mask, img, affine=mask.affine, copy_header=True)
+            img = nl.image.new_img_like(self.mask, img, affine=self.mask.affine, copy_header=True)
             img = nl.image.smooth_img(img, 3)
             img = nl.image.clean_img(img, detrend=True, standardize='zscore')
             img = nl.image.get_data(img)
@@ -67,10 +67,8 @@ class TReNDSDataset(Dataset):
         
         # Normalise values between -1 and 1
         if self.norm:
-            img -= np.mean(img)
-            safe_max = np.max(np.abs(img))
-            if safe_max!=0:
-                img /= safe_max
+            img -= np.mean(0.051363078512534084) # Pre-calculated mean of whole dataset
+            img /= 38.625 # Pre-calculated absolute maximum value of whole dataset
 
         return torch.from_numpy(img), torch.tensor([lbl])
     

@@ -36,18 +36,25 @@ class Conv4d(nn.Module):
         
         # Size of output tensor (O) and output tensor without padding and stride (O_s)
         O = floor((T + 2*self.P - self.K) / self.S + 1)
-        O_s = T - self.K + 1
+#         O_s = T - self.K + 1
         
         # Output tensors for each Conv3d result
         frame_results = O * [None]
         
         for i in range(self.K):
             for j in range(T):
-                # Calculate the output temporal frame
-                out_frame = j - (i - self.K // 2) - (T - O_s) // 2 - (1 - self.K % 2)
-                k_center  = out_frame % self.S
-                out_frame = floor(out_frame / self.S)
-                if k_center != 0 or out_frame <0 or out_frame >= O:
+                # Calculate the output temporal frame without stride
+                out_frame = j - i + self.P
+                
+                # Check if result is retained after stride
+                if out_frame%self.S!=0:
+                    continue
+                
+                # Calcualte the output temporal frame after stride
+                out_frame = floor(out_frame/self.S)
+                    
+                # Check if output frame is without output boundaries
+                if out_frame<0 or out_frame>=O:
                     continue
                 
                 # Convolute temporal frame with 3D convolutional layer
@@ -60,6 +67,12 @@ class Conv4d(nn.Module):
                     frame_results[out_frame] += frame_conv3d
                     
         return torch.stack(frame_results, dim=2)
+    
+#                 out_frame = j - (i - self.K // 2) - (T - O_s) // 2 - (1 - self.K % 2)
+#                 k_center  = out_frame % self.S
+#                 out_frame = floor(out_frame / self.S)
+#                 if k_center != 0 or out_frame <0 or out_frame >= O:
+#                     continue
     
 class MaxPool4d(nn.Module):
     
@@ -126,27 +139,14 @@ class AvgPool4d(nn.Module):
         return x
     
 class BatchNorm4d(nn.Module):
+    """ Not implemented yet """
     
     def __init__(self, num_features):
         super(BatchNorm4d, self).__init__()
-        self.bn = nn.BatchNorm3d(num_features)
-        
+
     def forward(self, x):
-        B,C = x.shape[:2]
-        x = x.view(tuple([B*C]) + x.shape[2:])
-        x = self.bn(x)
-        x = x.view(tuple([B,C]) + x.shape[1:])
+        
         return x
-    
-def downsample_basic_block(x, channels_in, stride=1, no_cuda=False):
-    x = MaxPool4d(x, kernel_size=1, stride=stride)
-    zero_pads = torch.Tensor(x.size(0), channels_in - out.size(1), out.size(2),
-                            out.size(3), out.size(4), out.size(5)).zero_()
-    if not no_cuda:
-        if isinstance(x.data, torch.cuda.FloatTensor):
-            zero_pads = zero_pads.cuda()
-    x = Variable(torch.cat([out.data, zero_pads], dim=1))
-    return out
 
 class BasicBlock(nn.Module):
     
@@ -157,45 +157,46 @@ class BasicBlock(nn.Module):
         
         self.conv1 = Conv4d(channels_in, channels_out, kernel_size=3, stride=stride,
                             dilation=dilation, padding=dilation)
-        self.bn1   = BatchNorm4d(channels_out)
+        # self.bn1   = BatchNorm4d(channels_out)
         self.relu  = nn.ReLU(inplace=True)
         self.conv2 = Conv4d(channels_out, channels_out, kernel_size=3, stride=1, 
                             dilation=dilation, padding=dilation)
-        self.bn2   = BatchNorm4d(channels_out)
+        # self.bn2   = BatchNorm4d(channels_out)
         self.downs = downsample
         
     def forward(self, x):
         res = x
         x = self.conv1(x)
-        x = self.bn1(x)
+        # x = self.bn1(x)
         x = self.relu(x)
+        print(x.shape)
         x = self.conv2(x)
-        x = self.bn2(x)
+        # x = self.bn2(x)
         
         if self.downs:
             res = self.downs(res)
                 
         x += res
         x = self.relu(x)
+        print(x.shape)
         return x
 
 class ResNet4D(nn.Module):
     
-    def __init__(self, block, layers, shortcut_type='B', num_class=1, no_cuda=False):
-        self.sc_type  = shortcut_type
+    def __init__(self, layers, num_class=1, no_cuda=False):
         self.no_cuda  = no_cuda
         self.channels = 64
         super(ResNet4D, self).__init__()
         
         self.conv1   = Conv4d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1     = BatchNorm4d(64)
+        # self.bn1     = BatchNorm4d(64)
         self.relu    = nn.ReLU(inplace=True)
         self.maxpool = MaxPool4d(kernel_size=3, stride=2, padding=1)
         
-        self.layer1  = self._make_layer(block, 64, layers[0])
-        self.layer2  = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3  = self._make_layer(block, 256, layers[2]) # dilation=2
-        self.layer4  = self._make_layer(block, 512, layers[3]) # dilation=4
+        self.layer1  = self._make_layer(64, layers[0])
+        self.layer2  = self._make_layer(128, layers[1], stride=2)
+        self.layer3  = self._make_layer(256, layers[2], stride=2)
+        self.layer4  = self._make_layer(512, layers[3], stride=2)
         
         self.avgpool = AvgPool4d(kernel_size=(7,7,8,7))
         self.fc      = nn.Sequential(nn.Linear(512, num_class, bias=True))
@@ -207,40 +208,40 @@ class ResNet4D(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
                 
-    def _make_layer(self, block, channels_out, blocks, stride=1, dilation=1):
+    def _make_layer(self, channels_out, blocks, stride=1, dilation=1):
         downsample = None
         if stride!=1 or channels_out!=self.channels:
-            if self.sc_type=='A':
-                downsample = partial(downsample_basic_block, channels_out,
-                                     stride=stride, no_cuda=self.no_cuda)
-            else:
-                downsample = nn.Sequential(
-                                Conv4d(self.channels, channels_out, kernel_size=1,
-                                       stride=stride, bias=False),
-                                BatchNorm4d(channels_out))
+            downsample = nn.Sequential(Conv4d(self.channels, channels_out,
+                                       kernel_size=1, stride=stride, bias=False)) #BatchNorm4d(channels_out)
         
         layers = []
-        layers.append(block(self.channels, channels_out, stride=stride,
-                            dilation=dilation, downsample=downsample))
+        layers.append(BasicBlock(self.channels, channels_out, stride=stride,
+                      dilation=dilation, downsample=downsample))
         self.channels = channels_out
+        
         for i in range(1, blocks):
-            layers.append(block(self.channels, channels_out, dilation=dilation))
+            layers.append(BasicBlock(self.channels, channels_out, dilation=dilation))
             
         return nn.Sequential(*layers)
         
     def forward(self, x):
         x = torch.unsqueeze(x, 1) #B,C,T,A,M,L
+        print(x.shape)
         x = self.conv1(x)
-        x = self.bn1(x)
+        # x = self.bn1(x)
         x = self.relu(x)
+        print(x.shape)
         x = self.maxpool(x)
+        print(x.shape)
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)        
         x = self.avgpool(x)
+        print(x.shape)
         x = x.view((-1, 512))
         x = self.fc(x)
+        print(x.shape)
         
         return x
     
