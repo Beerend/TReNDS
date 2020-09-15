@@ -54,11 +54,7 @@ class BasicBlock(nn.Module):
         out = self.bn2(out)
 
         if self.downsample is not None:
-            print('--- Downsample residual')
             residual = self.downsample(x)
-            
-        print('--- shape x:', out.shape)
-        print('--- shape r:', residual.shape)
 
         out += residual
         out = self.relu(out)
@@ -125,9 +121,9 @@ class ResNet3D(nn.Module):
         self.layer2 = self._make_layer(
             block, 64*2, layers[1], shortcut_type, stride=2)
         self.layer3 = self._make_layer(
-            block, 128*2, layers[2], shortcut_type, stride=1, dilation=2)
+            block, 128*2, layers[2], shortcut_type, stride=2) # stride=1, dilation=2
         self.layer4 = self._make_layer(
-            block, 256*2, layers[3], shortcut_type, stride=1, dilation=4)
+            block, 256*2, layers[3], shortcut_type, stride=2) # stride=1, dilation=4
 
         self.fea_dim = 256*2 * block.expansion
         self.fc = nn.Sequential(nn.Linear(self.fea_dim, num_class, bias=True))
@@ -167,21 +163,14 @@ class ResNet3D(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        print('Input:', x.shape)
         x = self.conv1( x)
-        print('After conv1:', x.shape)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-        print('After maxpool:', x.shape)
         x = self.layer1(x)
-        print('After layer1:', x.shape)
         x = self.layer2(x)
-        print('After layer2:', x.shape)
         x = self.layer3(x)
-        print('After layer3:', x.shape)
         x = self.layer4(x)
-        print('After layer4:', x.shape)
 
         x = F.adaptive_avg_pool3d(x, (1, 1, 1))
         emb_3d = x.view((-1, self.fea_dim))

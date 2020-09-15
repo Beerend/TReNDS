@@ -169,7 +169,6 @@ class BasicBlock(nn.Module):
         x = self.conv1(x)
         # x = self.bn1(x)
         x = self.relu(x)
-        print(x.shape)
         x = self.conv2(x)
         # x = self.bn2(x)
         
@@ -178,7 +177,6 @@ class BasicBlock(nn.Module):
                 
         x += res
         x = self.relu(x)
-        print(x.shape)
         return x
 
 class ResNet4D(nn.Module):
@@ -198,7 +196,7 @@ class ResNet4D(nn.Module):
         self.layer3  = self._make_layer(256, layers[2], stride=2)
         self.layer4  = self._make_layer(512, layers[3], stride=2)
         
-        self.avgpool = AvgPool4d(kernel_size=(7,7,8,7))
+        self.avgpool = AvgPool4d(kernel_size=(2,2,2,2))
         self.fc      = nn.Sequential(nn.Linear(512, num_class, bias=True))
         
         for m in self.modules():
@@ -226,26 +224,21 @@ class ResNet4D(nn.Module):
         
     def forward(self, x):
         x = torch.unsqueeze(x, 1) #B,C,T,A,M,L
-        print(x.shape)
         x = self.conv1(x)
         # x = self.bn1(x)
         x = self.relu(x)
-        print(x.shape)
         x = self.maxpool(x)
-        print(x.shape)
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)        
         x = self.avgpool(x)
-        print(x.shape)
         x = x.view((-1, 512))
         x = self.fc(x)
-        print(x.shape)
         
         return x
     
 def resnet10_4d(**kwargs):
     """ Constructs a ResNet-10 model with 4-dim convolutional kernels """
-    model = ResNet4D(BasicBlock, [1,1,1,1], **kwargs)
+    model = ResNet4D([1,1,1,1], **kwargs)
     return model
